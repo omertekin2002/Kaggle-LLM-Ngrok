@@ -87,8 +87,6 @@ T0 = time.time()
 PY_VER = f"{sys.version_info.major}.{sys.version_info.minor}"
 
 os.environ["HF_HOME"] = "/tmp/hf"                 # /kaggle/working is only ~21 GB
-os.environ["HF_TOKEN"] = "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"
-os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
 os.environ["HF_XET_HIGH_PERFORMANCE"] = "1"
 os.environ["VLLM_XLA_CACHE_PATH"] = XLA_CACHE
 os.environ["MIN_TOKEN_BUCKET"] = str(CFG["min_token_bucket"])
