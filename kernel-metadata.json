@@ -5,11 +5,14 @@
   "language": "python",
   "kernel_type": "notebook",
   "is_private": true,
-  "enable_gpu": true,
-  "enable_tpu": false,
+  "enable_gpu": false,
+  "enable_tpu": true,
   "enable_internet": true,
-  "machine_shape": "NvidiaTeslaT4",
-  "dataset_sources": [],
+  "machine_shape": "TpuV5E8",
+  "dataset_sources": [
+    "rahim3/qwen3-8-27b-bf16",
+    "rahim3/qwen38-tpu-env-v5e8"
+  ],
   "competition_sources": [],
   "kernel_sources": [],
   "model_sources": []
