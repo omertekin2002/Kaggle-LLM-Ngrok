@@ -1,0 +1,86 @@
+name: Sync notebook to Kaggle
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - kaggle-llm-ngrok.ipynb
+      - kernel-metadata.json
+      - .github/scripts/sync_kaggle.py
+  workflow_dispatch:
+    inputs:
+      run_notebook:
+        description: Run notebook on Kaggle after upload
+        type: boolean
+        default: false
+
+concurrency:
+  group: kaggle-sync-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # PyPI kaggle==2.2.4 still starts a run on `kernels push`. --no-run landed
+  # on kaggle-cli main in #1185 (this SHA is after that commit). `kaggle
+  # --version` may still print 2.2.4; the next step asserts --no-run exists.
+  # Never install unpinned `kaggle` from PyPI in this workflow.
+  KAGGLE_CLI_SPEC: git+https://github.com/Kaggle/kaggle-cli.git@c1c33512ca6e7d51cb67b216ff78ab7f4ecbe165
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  sync:
+    name: Upload to existing Kaggle notebook
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Kaggle CLI
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "${KAGGLE_CLI_SPEC}"
+          kaggle --version
+
+      - name: Verify kaggle kernels push --no-run
+        run: python .github/scripts/sync_kaggle.py --check-cli
+
+      - name: Require Kaggle secrets
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          if [ -z "${KAGGLE_API_TOKEN}" ] && { [ -z "${KAGGLE_USERNAME}" ] || [ -z "${KAGGLE_KEY}" ]; }; then
+            echo "Missing Kaggle credentials."
+            echo "Add a repository secret from https://www.kaggle.com/settings/api :"
+            echo "  KAGGLE_API_TOKEN  (the token string shown after Generate New Token)"
+            echo "Legacy alternative: KAGGLE_USERNAME + KAGGLE_KEY from Create Legacy API Key (kaggle.json)."
+            echo "Do not commit the token or kaggle.json. This job will not guess credentials."
+            exit 1
+          fi
+
+      - name: Upload notebook to Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          KAGGLE_KERNEL_ID: ${{ vars.KAGGLE_KERNEL_ID || secrets.KAGGLE_KERNEL_ID }}
+          RUN_NOTEBOOK: ${{ github.event_name == 'workflow_dispatch' && inputs.run_notebook }}
+        run: |
+          set -euo pipefail
+          if [ "${RUN_NOTEBOOK}" = "true" ]; then
+            python .github/scripts/sync_kaggle.py --run-notebook
+          else
+            python .github/scripts/sync_kaggle.py
+          fi
